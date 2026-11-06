@@ -55,3 +55,12 @@ describe("checkAvailability", () => {
     expect(JSON.stringify(bookings)).toBe(before);
   });
 });
+
+// Malformed time input gets its own "invalid" status, not "unavailable".
+describe("checkAvailability malformed time", () => {
+  it.each(["abc", "99:99", "25:00"])("start %s is invalid / формат %s неверный", (bad) => {
+    const result = checkAvailability(getRoom("r5"), bad, "23:00");
+    expect(result.status).toBe("invalid");
+    expect(result.message).toBe("Please enter times in HH:MM format, for example 09:30.");
+  });
+});

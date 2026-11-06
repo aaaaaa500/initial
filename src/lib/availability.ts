@@ -3,9 +3,11 @@ import { formatTime, parseTimeToAnchor } from "@/lib/datetime";
 
 export type AvailabilityResult =
   | { status: "available"; message: string }
-  | { status: "unavailable"; message: string };
+  | { status: "unavailable"; message: string }
+  | { status: "invalid"; message: string };
 
 const MAX_MINUTES = 120;
+const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
  * Two intervals [aStart, aEnd) and [bStart, bEnd) overlap when each starts
@@ -35,6 +37,10 @@ export function checkAvailability(
 
   if (!startTime || !endTime) {
     return { status: "unavailable", message: "Please enter both a start and end time." };
+  }
+
+  if (!HH_MM.test(startTime) || !HH_MM.test(endTime)) {
+    return { status: "invalid", message: "Please enter times in HH:MM format, for example 09:30." };
   }
 
   const start = parseTimeToAnchor(startTime);

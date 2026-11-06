@@ -11,42 +11,64 @@ import {
   RotateCcw,
   CalendarDays,
   CircleDot,
+  SearchX,
 } from "lucide-react";
 import { rooms, bookings, CURRENT_TIME, type Room } from "@/data/rooms";
 import { checkAvailability, type AvailabilityResult } from "@/lib/availability";
 import { formatTime, parseTimeToAnchor } from "@/lib/datetime";
+import { filterRooms } from "@/lib/roomFilter";
 import RoomTimeline from "@/components/RoomTimeline";
 
 export default function App() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
-  const [result, setResult] = useState<AvailabilityResult | null>(null);
+  const [attendees, setAttendees] = useState<string>("");
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [hasChecked, setHasChecked] = useState(false);
 
+  const attendeeCount = Number(attendees) || 0;
+
+  const allEquipment = useMemo(
+    () => Array.from(new Set(rooms.flatMap((r) => r.equipment))).sort(),
+    [],
+  );
+
+  const matches = useMemo(
+    () => filterRooms(rooms, { attendees: attendeeCount, equipment: selectedEquipment }),
+    [attendeeCount, selectedEquipment],
+  );
+
   const selectedRoom = useMemo<Room | null>(
-    () => rooms.find((r) => r.id === selectedRoomId) ?? null,
-    [selectedRoomId],
+    () => matches.find((m) => m.room.id === selectedRoomId)?.room ?? null,
+    [matches, selectedRoomId],
+  );
+
+  const result = useMemo<AvailabilityResult | null>(
+    () => (hasChecked ? checkAvailability(selectedRoom, startTime, endTime) : null),
+    [hasChecked, selectedRoom, startTime, endTime],
   );
 
   const candidate = useMemo(() => {
-    if (!hasChecked || !result || !startTime || !endTime) return undefined;
+    if (!hasChecked || !result || result.status === "invalid" || !startTime || !endTime) return undefined;
     const s = parseTimeToAnchor(startTime);
     const e = parseTimeToAnchor(endTime);
     return { start: s, end: e, available: result.status === "available" };
   }, [hasChecked, result, startTime, endTime]);
 
-  const handleCheck = () => {
-    const res = checkAvailability(selectedRoom, startTime, endTime);
-    setResult(res);
-    setHasChecked(true);
-  };
+  const handleCheck = () => setHasChecked(true);
+
+  const toggleEquipment = (item: string) =>
+    setSelectedEquipment((prev) =>
+      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item],
+    );
 
   const handleReset = () => {
     setSelectedRoomId("");
     setStartTime("");
     setEndTime("");
-    setResult(null);
+    setAttendees("");
+    setSelectedEquipment([]);
     setHasChecked(false);
   };
 
@@ -91,18 +113,52 @@ export default function App() {
                 Choose a room
               </label>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+              <div>
+                <label htmlFor="attendees" className="text-xs font-medium text-slate-500 block mb-1.5">
+                  Attendees
+                </label>
+                <input
+                  id="attendees"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  placeholder="Any"
+                  value={attendees}
+                  onChange={(e) => setAttendees(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-slate-50/50 transition-all focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400 focus:bg-white"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1.5">Equipment needed</p>
+                <div className="flex flex-wrap gap-2">
+                  {allEquipment.map((item) => {
+                    const checked = selectedEquipment.includes(item);
+                    return (
+                      <label
+                        key={item}
+                        className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
+                          checked
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <input type="checkbox" checked={checked} onChange={() => toggleEquipment(item)} className="sr-only" />
+                        {item}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {rooms.map((room) => {
+              {matches.map(({ room, available }) => {
                 const selected = room.id === selectedRoomId;
-                const blocked = room.status === "blocked";
+                const blocked = !available;
                 return (
                   <button
                     key={room.id}
-                    onClick={() => {
-                      setSelectedRoomId(room.id);
-                      setHasChecked(false);
-                      setResult(null);
-                    }}
+                    onClick={() => setSelectedRoomId(room.id)}
                     className={`text-left rounded-xl border p-4 transition-all duration-150 ${
                       selected
                         ? "border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-sm"
@@ -133,6 +189,12 @@ export default function App() {
                 );
               })}
             </div>
+            {matches.length === 0 && (
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                <SearchX size={18} className="shrink-0 text-slate-400" />
+                <p>No rooms match these filters. Try fewer attendees or fewer equipment items.</p>
+              </div>
+            )}
           </section>
 
           {/* Time selection */}
@@ -186,7 +248,7 @@ export default function App() {
             <div className="flex gap-3">
               <button
                 onClick={handleCheck}
-                disabled={!selectedRoomId || !startTime || !endTime}
+                disabled={!selectedRoom || !startTime || !endTime}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 text-white text-sm font-semibold px-4 py-3 shadow-sm shadow-slate-300/50 hover:bg-slate-800 hover:shadow-md hover:shadow-slate-300/50 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-150"
               >
                 <Search size={17} />
@@ -244,14 +306,14 @@ export default function App() {
                         result.status === "available" ? "text-emerald-900" : "text-rose-900"
                       }`}
                     >
-                      {result.status === "available" ? "Available" : "Unavailable"}
+                      {result.status === "available" ? "Available" : result.status === "invalid" ? "Invalid time" : "Unavailable"}
                     </h3>
                     <p
                       className={`text-sm font-medium mt-0.5 ${
                         result.status === "available" ? "text-emerald-600" : "text-rose-600"
                       }`}
                     >
-                      {result.status === "available" ? "Room available" : "Room unavailable"}
+                      {result.status === "available" ? "Room available" : result.status === "invalid" ? "Check the times" : "Room unavailable"}
                     </p>
                     <div
                       className={`mt-3 pt-3 border-t ${

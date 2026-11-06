@@ -7,6 +7,7 @@ export interface Room {
   building: string;
   capacity: number;
   status: "open" | "blocked";
+  equipment: string[];
 }
 
 export interface Booking {
@@ -24,11 +25,11 @@ const CURRENT_ISO = "2026-10-07T10:00:00";
 export const CURRENT_TIME = new Date(CURRENT_ISO);
 
 export const rooms: Room[] = [
-  { id: "r1", name: "Athena Hall", building: "North Wing", capacity: 120, status: "open" },
-  { id: "r2", name: "Tesla Lab", building: "East Wing", capacity: 40, status: "open" },
-  { id: "r3", name: "Curie Room", building: "South Wing", capacity: 30, status: "open" },
-  { id: "r4", name: "Newton Study", building: "West Wing", capacity: 25, status: "blocked" },
-  { id: "r5", name: "Da Vinci Studio", building: "Central", capacity: 18, status: "open" },
+  { id: "r1", name: "Athena Hall", building: "North Wing", capacity: 120, status: "open", equipment: ["Projector", "Whiteboard", "Video conferencing"] },
+  { id: "r2", name: "Tesla Lab", building: "East Wing", capacity: 40, status: "open", equipment: ["Projector", "Lab benches"] },
+  { id: "r3", name: "Curie Room", building: "South Wing", capacity: 30, status: "open", equipment: ["Whiteboard", "Lab benches"] },
+  { id: "r4", name: "Newton Study", building: "West Wing", capacity: 25, status: "blocked", equipment: ["Whiteboard"] },
+  { id: "r5", name: "Da Vinci Studio", building: "Central", capacity: 18, status: "open", equipment: ["Drawing easels", "Projector"] },
 ];
 
 // All bookings fall on the same demo day (2026-10-07).
@@ -38,4 +39,5 @@ export const bookings: Booking[] = [
   { id: "b3", roomId: "r2", start: "2026-10-07T11:00", end: "2026-10-07T12:00", bookedBy: "Robotics Lab" },
   { id: "b4", roomId: "r3", start: "2026-10-07T10:00", end: "2026-10-07T11:30", bookedBy: "Chemistry Seminar" },
   { id: "b5", roomId: "r5", start: "2026-10-07T15:30", end: "2026-10-07T16:30", bookedBy: "Art Workshop" },
+  { id: "b6", roomId: "r4", start: "2026-10-07T14:00", end: "2026-10-07T15:00", bookedBy: "Graduate Seminar" },
 ];
