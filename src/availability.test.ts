@@ -21,6 +21,9 @@ describe("checkAvailability", () => {
     // 13:00 в будущем, значит отклонить может только перевёрнутый интервал
     expect(checkAvailability(getRoom("r5"), "13:00", "12:00").status).toBe("unavailable");
   });
+  it("AC1-d: valid HH:MM times are accepted / корректный формат HH:MM принимается, свободно", () => {
+    expect(checkAvailability(getRoom("r5"), "11:00", "11:30").status).toBe("available");
+  });
 
   // AC2: max 120 minutes / максимум 120 минут
   it("AC2-a: exactly 120 min is available / ровно 120 минут, свободно", () => {
@@ -46,6 +49,9 @@ describe("checkAvailability", () => {
   it("AC4-c: touching at the start is available / касание в начале брони, свободно", () => {
     expect(checkAvailability(getRoom("r2"), "10:30", "11:00").status).toBe("available");
   });
+  it("AC4-d: a 1-minute overlap is unavailable / пересечение на 1 минуту, занято", () => {
+    expect(checkAvailability(getRoom("r2"), "11:59", "12:30").status).toBe("unavailable");
+  });
 
   // AC5: the bookings array must not change / массив bookings не должен меняться
   it("AC5: bookings array is not modified / массив bookings не изменился", () => {
@@ -53,6 +59,14 @@ describe("checkAvailability", () => {
     const before = JSON.stringify(bookings);
     checkAvailability(getRoom("r1"), "11:00", "12:00");
     expect(JSON.stringify(bookings)).toBe(before);
+  });
+});
+
+// F5: the same slot is checked against each room's own bookings / один слот проверяется по бронированиям каждой комнаты
+describe("checkAvailability per room", () => {
+  it("F5: same slot is unavailable in the booked room and available in another / один слот занят в одной комнате и свободен в другой", () => {
+    expect(checkAvailability(getRoom("r2"), "11:00", "12:00").status).toBe("unavailable");
+    expect(checkAvailability(getRoom("r1"), "11:00", "12:00").status).toBe("available");
   });
 });
 

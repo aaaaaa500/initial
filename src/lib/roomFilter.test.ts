@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rooms } from "@/data/rooms";
+import { rooms, bookings } from "@/data/rooms";
 import { filterRooms } from "@/lib/roomFilter";
 
 const ids = (matches: { room: { id: string } }[]) => matches.map((m) => m.room.id);
@@ -43,5 +43,14 @@ describe("filterRooms", () => {
   it("marks open matching rooms as available / открытые подходящие комнаты доступны", () => {
     const matches = filterRooms(rooms, { attendees: 1, equipment: ["Whiteboard"] });
     expect(matches.find((m) => m.room.id === "r1")?.available).toBe(true);
+  });
+
+  // AC5: filtering must not change the room or booking data
+  it("does not modify rooms or bookings / не меняет комнаты и бронирования", () => {
+    const roomsBefore = JSON.stringify(rooms);
+    const bookingsBefore = JSON.stringify(bookings);
+    filterRooms(rooms, { attendees: 1, equipment: ["Whiteboard"] });
+    expect(JSON.stringify(rooms)).toBe(roomsBefore);
+    expect(JSON.stringify(bookings)).toBe(bookingsBefore);
   });
 });
