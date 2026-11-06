@@ -1,5 +1,6 @@
-import { bookings, CURRENT_TIME, type Room } from "@/data/rooms";
+import { CURRENT_TIME, type Room } from "@/data/rooms";
 import { formatTime, parseTimeToAnchor } from "@/lib/datetime";
+import { getRoomBookings } from "@/lib/roomBookings";
 
 export type AvailabilityResult =
   | { status: "available"; message: string }
@@ -77,7 +78,7 @@ export function checkAvailability(
   }
 
   // Rule: reject overlapping bookings (touching intervals are allowed).
-  const roomBookings = bookings.filter((b) => b.roomId === room.id);
+  const roomBookings = getRoomBookings(room.id);
 
   const conflict = roomBookings.find((b) =>
     intervalsOverlap(start, end, new Date(b.start), new Date(b.end)),

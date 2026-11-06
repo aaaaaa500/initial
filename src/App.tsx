@@ -1,23 +1,15 @@
 import { useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  XCircle,
-  Clock,
-  MapPin,
-  Users,
-  Lock,
-  Search,
-  Building2,
-  RotateCcw,
-  CalendarDays,
-  CircleDot,
-  SearchX,
-} from "lucide-react";
-import { rooms, bookings, CURRENT_TIME, type Room } from "@/data/rooms";
+import { Clock, Search, RotateCcw, CalendarDays, Building2 } from "lucide-react";
+import { rooms, CURRENT_TIME, type Room } from "@/data/rooms";
 import { checkAvailability, type AvailabilityResult } from "@/lib/availability";
-import { formatTime, parseTimeToAnchor } from "@/lib/datetime";
+import { parseTimeToAnchor } from "@/lib/datetime";
 import { filterRooms } from "@/lib/roomFilter";
 import RoomTimeline from "@/components/RoomTimeline";
+import RoomFilterPanel from "@/components/RoomFilterPanel";
+import RoomList from "@/components/RoomList";
+import TimeRangeInputs from "@/components/TimeRangeInputs";
+import AvailabilityResultCard from "@/components/AvailabilityResultCard";
+import ExistingBookings from "@/components/ExistingBookings";
 
 export default function App() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
@@ -25,7 +17,7 @@ export default function App() {
   const [endTime, setEndTime] = useState<string>("");
   const [attendees, setAttendees] = useState<string>("");
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
-  const [hasChecked, setHasChecked] = useState(false);
+  const [checkedWindow, setCheckedWindow] = useState<{ start: string; end: string } | null>(null);
 
   const attendeeCount = Number(attendees) || 0;
 
@@ -45,18 +37,30 @@ export default function App() {
   );
 
   const result = useMemo<AvailabilityResult | null>(
-    () => (hasChecked ? checkAvailability(selectedRoom, startTime, endTime) : null),
-    [hasChecked, selectedRoom, startTime, endTime],
+    () => (checkedWindow ? checkAvailability(selectedRoom, checkedWindow.start, checkedWindow.end) : null),
+    [checkedWindow, selectedRoom],
   );
 
   const candidate = useMemo(() => {
-    if (!hasChecked || !result || result.status === "invalid" || !startTime || !endTime) return undefined;
-    const s = parseTimeToAnchor(startTime);
-    const e = parseTimeToAnchor(endTime);
-    return { start: s, end: e, available: result.status === "available" };
-  }, [hasChecked, result, startTime, endTime]);
+    if (!checkedWindow || !result || result.status === "invalid") return undefined;
+    return {
+      start: parseTimeToAnchor(checkedWindow.start),
+      end: parseTimeToAnchor(checkedWindow.end),
+      available: result.status === "available",
+    };
+  }, [checkedWindow, result]);
 
-  const handleCheck = () => setHasChecked(true);
+  const handleCheck = () => setCheckedWindow({ start: startTime, end: endTime });
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    setCheckedWindow(null);
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    setCheckedWindow(null);
+  };
 
   const toggleEquipment = (item: string) =>
     setSelectedEquipment((prev) =>
@@ -69,7 +73,7 @@ export default function App() {
     setEndTime("");
     setAttendees("");
     setSelectedEquipment([]);
-    setHasChecked(false);
+    setCheckedWindow(null);
   };
 
   return (
@@ -113,88 +117,14 @@ export default function App() {
                 Choose a room
               </label>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-              <div>
-                <label htmlFor="attendees" className="text-xs font-medium text-slate-500 block mb-1.5">
-                  Attendees
-                </label>
-                <input
-                  id="attendees"
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  placeholder="Any"
-                  value={attendees}
-                  onChange={(e) => setAttendees(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-slate-50/50 transition-all focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400 focus:bg-white"
-                />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-1.5">Equipment needed</p>
-                <div className="flex flex-wrap gap-2">
-                  {allEquipment.map((item) => {
-                    const checked = selectedEquipment.includes(item);
-                    return (
-                      <label
-                        key={item}
-                        className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
-                          checked
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <input type="checkbox" checked={checked} onChange={() => toggleEquipment(item)} className="sr-only" />
-                        {item}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {matches.map(({ room, available }) => {
-                const selected = room.id === selectedRoomId;
-                const blocked = !available;
-                return (
-                  <button
-                    key={room.id}
-                    onClick={() => setSelectedRoomId(room.id)}
-                    className={`text-left rounded-xl border p-4 transition-all duration-150 ${
-                      selected
-                        ? "border-slate-900 bg-slate-50 ring-2 ring-slate-900/10 shadow-sm"
-                        : blocked
-                        ? "border-slate-200 bg-slate-50/30 hover:bg-slate-50/60"
-                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/70 hover:shadow-sm"
-                    } ${blocked ? "opacity-65" : ""}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={`font-semibold leading-tight ${selected ? "text-slate-900" : "text-slate-800"}`}>{room.name}</p>
-                        <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                          <MapPin size={12} className="shrink-0" />
-                          <span className="truncate">{room.building}</span>
-                        </div>
-                      </div>
-                      {blocked ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-1 rounded-full ring-1 ring-rose-100 shrink-0">
-                          <Lock size={11} /> Blocked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full ring-1 ring-emerald-100 shrink-0">
-                          <Users size={11} /> {room.capacity}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            {matches.length === 0 && (
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                <SearchX size={18} className="shrink-0 text-slate-400" />
-                <p>No rooms match these filters. Try fewer attendees or fewer equipment items.</p>
-              </div>
-            )}
+            <RoomFilterPanel
+              attendees={attendees}
+              onAttendeesChange={setAttendees}
+              allEquipment={allEquipment}
+              selectedEquipment={selectedEquipment}
+              onToggleEquipment={toggleEquipment}
+            />
+            <RoomList matches={matches} selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId} />
           </section>
 
           {/* Time selection */}
@@ -205,42 +135,12 @@ export default function App() {
                 Pick a time
               </label>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="start-time" className="text-xs font-medium text-slate-500 block mb-1.5">
-                  Start time
-                </label>
-                <input
-                  id="start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => {
-                    setStartTime(e.target.value);
-                    setHasChecked(false);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-slate-50/50 transition-all focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400 focus:bg-white"
-                />
-              </div>
-              <div>
-                <label htmlFor="end-time" className="text-xs font-medium text-slate-500 block mb-1.5">
-                  End time
-                </label>
-                <input
-                  id="end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => {
-                    setEndTime(e.target.value);
-                    setHasChecked(false);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-slate-50/50 transition-all focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400 focus:bg-white"
-                />
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-slate-400 flex items-center gap-1.5">
-              <CircleDot size={11} className="shrink-0" />
-              Max booking length: 120 minutes. Start time must be after the current time.
-            </p>
+            <TimeRangeInputs
+              startTime={startTime}
+              endTime={endTime}
+              onStartTimeChange={handleStartTimeChange}
+              onEndTimeChange={handleEndTimeChange}
+            />
           </section>
 
           {/* Action buttons */}
@@ -265,74 +165,9 @@ export default function App() {
           </section>
 
           {/* Result */}
-          {hasChecked && result && (
+          {result && (
             <section className="p-5 sm:p-6">
-              <div
-                className={`relative rounded-2xl overflow-hidden border shadow-lg shadow-slate-200/50 ${
-                  result.status === "available"
-                    ? "bg-gradient-to-br from-emerald-50 via-emerald-50/70 to-white border-emerald-200"
-                    : "bg-gradient-to-br from-rose-50 via-rose-50/70 to-white border-rose-200"
-                }`}
-              >
-                {/* Top accent bar */}
-                <div
-                  className={`h-1.5 w-full ${
-                    result.status === "available"
-                      ? "bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400"
-                      : "bg-gradient-to-r from-rose-400 via-rose-500 to-rose-400"
-                  }`}
-                />
-                <div className="flex items-start gap-5 p-5 sm:p-6">
-                  {/* Circular icon badge */}
-                  <div className="relative shrink-0">
-                    <div
-                      className={`flex items-center justify-center w-16 h-16 rounded-full ring-4 ${
-                        result.status === "available"
-                          ? "bg-emerald-500 ring-emerald-100"
-                          : "bg-rose-500 ring-rose-100"
-                      }`}
-                    >
-                      {result.status === "available" ? (
-                        <CheckCircle2 size={34} className="text-white" strokeWidth={2.5} />
-                      ) : (
-                        <XCircle size={34} className="text-white" strokeWidth={2.5} />
-                      )}
-                    </div>
-                  </div>
-                  {/* Content */}
-                  <div className="min-w-0 flex-1 pt-1">
-                    <h3
-                      className={`font-extrabold text-2xl sm:text-3xl leading-tight tracking-tight ${
-                        result.status === "available" ? "text-emerald-900" : "text-rose-900"
-                      }`}
-                    >
-                      {result.status === "available" ? "Available" : result.status === "invalid" ? "Invalid time" : "Unavailable"}
-                    </h3>
-                    <p
-                      className={`text-sm font-medium mt-0.5 ${
-                        result.status === "available" ? "text-emerald-600" : "text-rose-600"
-                      }`}
-                    >
-                      {result.status === "available" ? "Room available" : result.status === "invalid" ? "Check the times" : "Room unavailable"}
-                    </p>
-                    <div
-                      className={`mt-3 pt-3 border-t ${
-                        result.status === "available"
-                          ? "border-emerald-200/60"
-                          : "border-rose-200/60"
-                      }`}
-                    >
-                      <p
-                        className={`text-sm leading-relaxed ${
-                          result.status === "available" ? "text-emerald-800/90" : "text-rose-800/90"
-                        }`}
-                      >
-                        {result.message}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <AvailabilityResultCard result={result} />
             </section>
           )}
 
@@ -350,34 +185,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Existing bookings reference */}
-        {selectedRoom && (
-          <div className="mt-5">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-              <CalendarDays size={12} />
-              Existing bookings
-            </p>
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm shadow-slate-100/40 divide-y divide-slate-100 overflow-hidden">
-              {bookings.filter((b) => b.roomId === selectedRoom.id).length === 0 ? (
-                <p className="px-4 py-4 text-sm text-slate-400 italic">No existing bookings for this room.</p>
-              ) : (
-                bookings
-                  .filter((b) => b.roomId === selectedRoom.id)
-                  .map((b) => (
-                    <div key={b.id} className="flex items-center justify-between px-4 py-3.5 text-sm hover:bg-slate-50/50 transition-colors">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
-                        <span className="text-slate-700 truncate">{b.bookedBy}</span>
-                      </div>
-                      <span className="text-slate-500 tabular-nums font-medium shrink-0 ml-3">
-                        {formatTime(new Date(b.start))} – {formatTime(new Date(b.end))}
-                      </span>
-                    </div>
-                  ))
-              )}
-            </div>
-          </div>
-        )}
+        {selectedRoom && <ExistingBookings roomId={selectedRoom.id} />}
 
         <footer className="mt-8 text-center text-xs text-slate-400">
           Fictional sample data for demonstration purposes only.
@@ -386,4 +194,3 @@ export default function App() {
     </div>
   );
 }
-

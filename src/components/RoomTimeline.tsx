@@ -1,5 +1,6 @@
-import { bookings, CURRENT_TIME } from "@/data/rooms";
+import { CURRENT_TIME } from "@/data/rooms";
 import { formatTime } from "@/lib/datetime";
+import { getRoomBookings } from "@/lib/roomBookings";
 import { useMemo } from "react";
 
 interface RoomTimelineProps {
@@ -19,11 +20,15 @@ function toPercent(date: Date): number {
   return (minutes / (SPAN * 60)) * 100;
 }
 
+function barPosition(start: Date, end: Date): { left: number; width: number } {
+  const startPct = Math.min(100, Math.max(0, toPercent(start)));
+  const endPct = Math.min(100, Math.max(0, toPercent(end)));
+  const width = Math.max(endPct - startPct, 1.5);
+  return { left: Math.min(startPct, 100 - width), width };
+}
+
 export default function RoomTimeline({ roomId, candidate }: RoomTimelineProps) {
-  const roomBookings = useMemo(
-    () => bookings.filter((b) => b.roomId === roomId),
-    [roomId],
-  );
+  const roomBookings = useMemo(() => getRoomBookings(roomId), [roomId]);
 
   const hours = useMemo(
     () => Array.from({ length: SPAN + 1 }, (_, i) => DAY_START + i),
@@ -31,6 +36,7 @@ export default function RoomTimeline({ roomId, candidate }: RoomTimelineProps) {
   );
 
   const nowPct = toPercent(CURRENT_TIME);
+  const candidateBar = candidate ? barPosition(candidate.start, candidate.end) : null;
 
   return (
     <div className="w-full">
@@ -51,9 +57,7 @@ export default function RoomTimeline({ roomId, candidate }: RoomTimelineProps) {
 
         {/* Existing bookings */}
         {roomBookings.map((b) => {
-          const left = toPercent(new Date(b.start));
-          const right = toPercent(new Date(b.end));
-          const width = Math.max(right - left, 1.5);
+          const { left, width } = barPosition(new Date(b.start), new Date(b.end));
           return (
             <div
               key={b.id}
@@ -71,7 +75,7 @@ export default function RoomTimeline({ roomId, candidate }: RoomTimelineProps) {
         })}
 
         {/* Candidate interval */}
-        {candidate && (
+        {candidate && candidateBar && (
           <div
             className={`absolute top-7 bottom-2.5 rounded-md ring-2 flex items-center justify-center ${
               candidate.available
@@ -79,8 +83,8 @@ export default function RoomTimeline({ roomId, candidate }: RoomTimelineProps) {
                 : "bg-amber-400/50 ring-amber-500"
             }`}
             style={{
-              left: `${toPercent(candidate.start)}%`,
-              width: `${Math.max(toPercent(candidate.end) - toPercent(candidate.start), 1.5)}%`,
+              left: `${candidateBar.left}%`,
+              width: `${candidateBar.width}%`,
             }}
           />
         )}
